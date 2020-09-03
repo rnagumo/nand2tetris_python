@@ -2,7 +2,7 @@
 import argparse
 import pathlib
 
-import assembler
+from nnttpy import assembler
 
 
 def main() -> None:
