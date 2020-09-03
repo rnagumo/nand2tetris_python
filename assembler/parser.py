@@ -29,7 +29,6 @@ class Parser:
         # Set first command
         self.advance()
 
-    @property
     def has_more_commands(self) -> bool:
         """Check whether command exists in input.
 
@@ -46,7 +45,7 @@ class Parser:
             RuntimeError: If `has_more_commands` is `False`.
         """
 
-        if not self.has_more_commands:
+        if not self.has_more_commands():
             raise RuntimeError("No successive command exists.")
 
         # Remove comments
