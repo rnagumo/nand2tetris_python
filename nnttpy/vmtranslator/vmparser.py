@@ -17,14 +17,22 @@ class VMParser:
     c_return = 8
     c_call = 9
 
-    def __init__(self, code: List[str]):
+    def __init__(self):
 
-        self._code = code
-        self._length = len(code)
+        self._code: List[str] = []
+        self._length = 0
         self._index = 0
         self._current = ""
 
-        # Set first command
+    @property
+    def code(self) -> List[str]:
+        return self._code
+
+    @code.setter
+    def code(self, code: List[str]) -> None:
+        self._code = code
+        self._length = len(code)
+        self._index = 0
         self.advance()
 
     def has_more_commands(self) -> bool:
@@ -88,6 +96,27 @@ class VMParser:
 
         raise ValueError(f"Unexpected command: {self._current}")
 
+    def is_invalid(self) -> bool:
+        return self.command_type == self.c_invalid
+
+    def is_pushpop(self) -> bool:
+        return self.command_type in [self.c_push, self.c_pop]
+
+    def is_arithmetic(self) -> bool:
+        return self.command_type == self.c_arithmetic
+
+    @property
+    def command(self) -> str:
+        """Returns current command.
+
+        Returns:
+            command (str): Parsed command.
+        """
+
+        command, *_ = self._current.split(" ")
+        return command
+
+    @property
     def arg1(self) -> str:
         """First argument of current command.
 
@@ -107,6 +136,7 @@ class VMParser:
         _, arg1, *_ = self._current.split(" ")
         return arg1
 
+    @property
     def arg2(self) -> str:
         """Second argument of current command.
 
