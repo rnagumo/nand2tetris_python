@@ -15,7 +15,7 @@ def main() -> None:
     translator = vmtranslator.VMTranslator()
     assemle_code = translator.translate(input_path)
 
-    # Write parsed binary to file
+    # Write parsed assemble code to file
     output_path = input_path.parent / (input_path.stem + ".asm")
     with output_path.open("w") as f:
         f.write("\n".join(assemle_code))
