@@ -99,11 +99,11 @@ class VMParser:
     def is_invalid(self) -> bool:
         return self.command_type == self.c_invalid
 
-    def is_pushpop(self) -> bool:
-        return self.command_type in [self.c_push, self.c_pop]
-
     def is_arithmetic(self) -> bool:
         return self.command_type == self.c_arithmetic
+
+    def is_pushpop(self) -> bool:
+        return self.command_type in [self.c_push, self.c_pop]
 
     @property
     def command(self) -> str:
