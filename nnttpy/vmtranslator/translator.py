@@ -1,4 +1,11 @@
 
+"""Translator from Jack VM code to Hack assemble code.
+
+ref)
+https://github.com/chrisshyi/VMTranslator/blob/master/src/main/Translator.java
+https://medium.com/@yizhe87/from-nand-to-tetris-nand2tetris-project-7-8-e74e8e009e71
+"""
+
 from typing import Union, List
 
 import pathlib
