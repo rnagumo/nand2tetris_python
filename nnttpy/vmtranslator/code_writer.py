@@ -2,7 +2,7 @@
 from typing import List
 
 
-class CodeWriter:
+class VMCodeWriter:
     """Code writer of Hack assemble codes."""
 
     # Templates
@@ -27,7 +27,7 @@ class CodeWriter:
         self._code: List[str] = []
 
     @property
-    def code(self) -> str:
+    def code(self) -> List[str]:
         """Returns wrote codes. This method should be called at last."""
 
         if not self._code:
@@ -36,10 +36,14 @@ class CodeWriter:
         if len(self._code) < 3 or self._code[-3:] != self.end_program:
             self._code += self.end_program
 
-        return "\n".join(self._code)
+        return self._code
 
     def write_arithmetic(self, command: str) -> None:
-        """"""
+        """Writes arithmetic operation.
+
+        Args:
+            command (str): Command name.
+        """
 
         has_args = command in ["neg", "not"]
         self._pop_stack()
@@ -54,12 +58,27 @@ class CodeWriter:
         elif command == "lt":
             self._jump("JLT")
 
-        raise NotImplementedError
+    def write_pushpop(self, command: str, segment: str, index: str) -> None:
+        """Writes push/pop command.
 
-    def write_pushpop(self, command: str, segment: str, index: int) -> None:
-        """"""
+        Args:
+            command (str): Command name (push or pop).
+            segment (str): 1st argument, segment.
+            index (str): 2nd argument, number of index.
 
-        raise NotImplementedError
+        Raises:
+            ValueError: If given `command` is not 'push' nor 'pop'.
+        """
+
+        if command == "push":
+            if segment == "constant":
+                self._push_stack(index)
+            else:
+                self._push_stack()
+        elif command == "pop":
+            self._pop_stack()
+        else:
+            raise ValueError(f"Unexpected command type: {command}")
 
     def _push_stack(self, constant: str = "") -> None:
 
