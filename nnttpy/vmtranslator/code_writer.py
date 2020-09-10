@@ -45,11 +45,12 @@ class VMCodeWriter:
             command (str): Command name.
         """
 
-        has_args = command in ["neg", "not"]
+        has_args = command not in ["neg", "not"]
         self._pop_stack()
         if has_args:
-            self._pop_stack()
+            self._pop_stack(save_to_d=False)
         self._code += [f"D={'M' if has_args else ''}{self.op_table[command]}D"]
+        self._push_stack()
 
         if command == "eq":
             self._jump("JEQ")
@@ -87,7 +88,7 @@ class VMCodeWriter:
         self._code += ["@SP", "A=M", "M=D"]
         self._code += self.inc_sp
 
-    def _pop_stack(self, save_to_d: bool = False) -> None:
+    def _pop_stack(self, save_to_d: bool = True) -> None:
 
         self._code += self.dec_sp
         if save_to_d:
