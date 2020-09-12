@@ -19,10 +19,20 @@ class VMCodeWriter:
         "not": "!",
     }
     jump_cmd = set(["JGT", "JEQ", "JGE", "JLT", "JNE", "JLE", "JMP"])
+    symbol_hash = {
+        "local": "LCL",
+        "argument": "ARG",
+        "this": "THIS",
+        "that": "THAT",
+        "pointer": "THIS",
+        "temp": "5",
+    }
 
     def __init__(self):
 
         self._code: List[str] = []
+        self.line_num = 0
+        self.file_name = ""
 
     @property
     def code(self) -> List[str]:
@@ -36,12 +46,11 @@ class VMCodeWriter:
 
         return self._code
 
-    def write_arithmetic(self, command: str, line_num: int) -> None:
+    def write_arithmetic(self, command: str) -> None:
         """Writes arithmetic operation.
 
         Args:
             command (str): Command name.
-            line_num (int): Line Number.
         """
 
         has_args = command not in ["neg", "not"]
@@ -51,11 +60,11 @@ class VMCodeWriter:
         self._code += [f"D={'M' if has_args else ''}{self.op_table[command]}D"]
 
         if command == "eq":
-            self._jump("JEQ", line_num)
+            self._jump("JEQ")
         elif command == "gt":
-            self._jump("JGT", line_num)
+            self._jump("JGT")
         elif command == "lt":
-            self._jump("JLT", line_num)
+            self._jump("JLT")
 
         self._push_stack()
 
@@ -74,10 +83,20 @@ class VMCodeWriter:
         if command == "push":
             if segment == "constant":
                 self._push_stack(index)
+            elif segment == "static":
+                self._load_static(index, push=True)
+                self._push_stack()
             else:
+                self._load_memory(segment, index, push=True)
                 self._push_stack()
         elif command == "pop":
             self._pop_stack()
+            if segment == "static":
+                self._load_static(index, push=False)
+            else:
+                self._code += ["@13", "M=D"]
+                self._load_memory(
+                    segment, index, push=False, save_from_r13=True)
         else:
             raise ValueError(f"Unexpected command type: {command}")
 
@@ -94,12 +113,38 @@ class VMCodeWriter:
         if save_to_d:
             self._code += ["D=M"]
 
-    def _jump(self, jump_type: str, line_num: int) -> None:
+    def _jump(self, jump_type: str) -> None:
 
         if jump_type not in self.jump_cmd:
             raise ValueError(f"Invalid jump type: {jump_type}")
 
-        self._code += [f"@TRUE_JUMP{line_num}", f"D;{jump_type}", "D=0"]
-        self._code += [f"@FALSE_NO_JUMP{line_num}", "0;JMP"]
-        self._code += [f"(TRUE_JUMP{line_num})", "D=-1",
-                       f"(FALSE_NO_JUMP{line_num})"]
+        self._code += [
+            f"@TRUE_JUMP.{self.file_name}.{self.line_num}",
+            f"D;{jump_type}", "D=0"]
+        self._code += [
+            f"@FALSE_NO_JUMP.{self.file_name}.{self.line_num}", "0;JMP"]
+        self._code += [
+            f"(TRUE_JUMP.{self.file_name}.{self.line_num})", "D=-1",
+            f"(FALSE_NO_JUMP.{self.file_name}.{self.line_num})"]
+
+    def _load_static(self, index: str, push: bool) -> None:
+
+        self._code += [f"@{self.file_name}.{index}"]
+        if push:
+            self._code += ["D=M"]
+        else:
+            self._code += ["M=D"]
+
+    def _load_memory(self, segment: str, index: str, push: bool,
+                     save_from_r13: bool = False) -> None:
+
+        self._code += [f"@{index}", "D=A", f"@{self.symbol_hash[segment]}"]
+        if segment in ["temp", "pointer"]:
+            self._code += ["AD=A+D"]
+        else:
+            self._code += ["AD=M+D"]
+
+        if save_from_r13:
+            self._code += ["@14", "M=D", "@13", "D=M", "@14", "A=M", "M=D"]
+        else:
+            self._code += ["D=M"]
