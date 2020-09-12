@@ -44,11 +44,11 @@ class VMTranslator:
                 raise ValueError(f"Expected .vm file, but given {input_path}.")
             files = [input_path]
 
+        line_num = 0
         for p in files:
             with p.open("r") as f:
                 lines = f.readlines()
             self._parser.code = lines
-            line_num = 0
 
             while True:
                 if self._parser.is_invalid():
