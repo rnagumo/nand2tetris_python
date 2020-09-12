@@ -48,12 +48,14 @@ class VMTranslator:
             with p.open("r") as f:
                 lines = f.readlines()
             self._parser.code = lines
+            line_num = 0
 
             while True:
                 if self._parser.is_invalid():
                     pass
                 elif self._parser.is_arithmetic():
-                    self._writer.write_arithmetic(self._parser.command)
+                    self._writer.write_arithmetic(
+                        self._parser.command, line_num)
                 elif self._parser.is_pushpop():
                     self._writer.write_pushpop(
                         self._parser.command, self._parser.arg1,
@@ -63,6 +65,7 @@ class VMTranslator:
 
                 try:
                     self._parser.advance()
+                    line_num += 1
                 except RuntimeError:
                     break
 
