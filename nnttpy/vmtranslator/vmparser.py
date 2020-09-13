@@ -25,6 +25,10 @@ class VMParser:
         self._current = ""
 
     @property
+    def current(self) -> str:
+        return self._current
+
+    @property
     def code(self) -> List[str]:
         return self._code
 
@@ -102,8 +106,29 @@ class VMParser:
     def is_arithmetic(self) -> bool:
         return self.command_type == self.c_arithmetic
 
-    def is_pushpop(self) -> bool:
-        return self.command_type in [self.c_push, self.c_pop]
+    def is_push(self) -> bool:
+        return self.command_type == self.c_push
+
+    def is_pop(self) -> bool:
+        return self.command_type == self.c_pop
+
+    def is_call(self) -> bool:
+        return self.command_type == self.c_call
+
+    def is_label(self) -> bool:
+        return self.command_type == self.c_label
+
+    def is_goto(self) -> bool:
+        return self.command_type == self.c_goto
+
+    def is_if(self) -> bool:
+        return self.command_type == self.c_if
+
+    def is_return(self) -> bool:
+        return self.command_type == self.c_return
+
+    def is_function(self) -> bool:
+        return self.command_type == self.c_function
 
     @property
     def command(self) -> str:

@@ -39,6 +39,7 @@ class VMTranslator:
         input_path = pathlib.Path(path)
         if input_path.is_dir():
             files = list(input_path.glob("*.vm"))
+            self._writer.write_init()
         else:
             if input_path.suffix != ".vm":
                 raise ValueError(f"Expected .vm file, but given {input_path}.")
@@ -56,12 +57,29 @@ class VMTranslator:
                     pass
                 elif self._parser.is_arithmetic():
                     self._writer.write_arithmetic(self._parser.command)
-                elif self._parser.is_pushpop():
-                    self._writer.write_pushpop(
-                        self._parser.command, self._parser.arg1,
-                        self._parser.arg2)
+                elif self._parser.is_push():
+                    self._writer.write_push(
+                        self._parser.arg1, self._parser.arg2)
+                elif self._parser.is_pop():
+                    self._writer.write_pop(
+                        self._parser.arg1, self._parser.arg2)
+                elif self._parser.is_call():
+                    self._writer.write_call(
+                        self._parser.arg1, self._parser.arg2)
+                elif self._parser.is_label():
+                    self._writer.write_label(self._parser.arg1)
+                elif self._parser.is_goto():
+                    self._writer.write_goto(self._parser.arg1)
+                elif self._parser.is_if():
+                    self._writer.write_if(self._parser.arg1)
+                elif self._parser.is_return():
+                    self._writer.write_return()
+                elif self._parser.is_function():
+                    self._writer.write_function(
+                        self._parser.arg1, self._parser.arg2)
                 else:
-                    raise NotImplementedError
+                    raise NotImplementedError(
+                        f"Unknown line: {self._parser.current}")
 
                 try:
                     self._parser.advance()
