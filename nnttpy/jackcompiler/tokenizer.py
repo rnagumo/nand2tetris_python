@@ -70,7 +70,7 @@ class JackTokenizer:
         self._row = 0
         self._column = 100
 
-    def has_more_token(self) -> bool:
+    def _has_more_token(self) -> bool:
         """Boolean flag for more token.
 
         Returns:
@@ -86,10 +86,10 @@ class JackTokenizer:
         """Go to the next token.
 
         Raises:
-            RuntimeError: If `has_more_token` is `False`.
+            RuntimeError: If `_has_more_token` is `False`.
         """
 
-        if not self.has_more_token():
+        if not self._has_more_token():
             raise RuntimeError("No successive token exists.")
 
         self._current_token = ""
