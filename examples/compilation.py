@@ -17,7 +17,7 @@ def main() -> None:
     xml_code = compiler.compile_xml(input_path)
 
     # Write parsed binary to file
-    output_path = input_path.parent / (input_path.stem + "_0.xml")
+    output_path = input_path.parent / (input_path.stem + ".xml")
     with output_path.open("w") as f:
         f.write("\n".join(xml_code))
 
