@@ -181,21 +181,6 @@ class JackTokenizer:
 
         raise ValueError(f"Unexpected token: {self._current_token}")
 
-    def is_keyword(self) -> bool:
-        return self.token_type == self.t_keyword
-
-    def is_symbol(self) -> bool:
-        return self.token_type == self.t_symbol
-
-    def is_integer(self) -> bool:
-        return self.token_type == self.t_integer_const
-
-    def is_string(self) -> bool:
-        return self.token_type == self.t_string_const
-
-    def is_identifier(self) -> bool:
-        return self.token_type == self.t_identifier
-
     def _is_all_numeric(self) -> bool:
         return (
             all("0" <= c <= "9" for c in self._current_token) and
