@@ -37,7 +37,7 @@ class JackAnalyzer:
         if not files or any(".jack" not in str(p) for p in files):
             raise ValueError(f"Found not-Jack files: {files}")
 
-        res: List[str] = ["<tokens>"]
+        token_list: List[str] = []
         for p in files:
             with p.open("r") as f:
                 lines = f.readlines()
@@ -51,7 +51,8 @@ class JackAnalyzer:
 
                 parsed = self._tokenizer.current_xml
                 if parsed:
-                    res.append(parsed)
+                    token_list.append(parsed)
 
-        res.append("</tokens>")
-        return res
+        token_list = self._engine.compile(token_list)
+
+        return token_list
