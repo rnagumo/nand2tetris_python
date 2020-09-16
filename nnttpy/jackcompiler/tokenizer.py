@@ -59,6 +59,10 @@ class JackTokenizer:
         return f"<{tag}> {self.current_token} </{tag}>"
 
     @property
+    def current_line(self) -> int:
+        return self._row
+
+    @property
     def code(self) -> List[str]:
         return self._code
 
