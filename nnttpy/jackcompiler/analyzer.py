@@ -18,8 +18,7 @@ class JackAnalyzer:
         """Compiles Jack lang code to XML.
 
         Args:
-            path (str or pathlib.Path): Path to .jack file or folder containing
-                multiple .jack files.
+            path (str or pathlib.Path): Path to .jack file.
 
         Returns:
             compiled_code (list of str): Translated assemble code.
@@ -29,30 +28,24 @@ class JackAnalyzer:
         """
 
         input_path = pathlib.Path(path)
-        if input_path.is_dir():
-            files = list(input_path.glob("*.jack"))
-        else:
-            files = [input_path]
+        if input_path.suffix != ".jack":
+            raise ValueError(f"Given file {input_path} is not .jack file.")
 
-        if not files or any(".jack" not in str(p) for p in files):
-            raise ValueError(f"Found not-Jack files: {files}")
+        with input_path.open("r") as f:
+            lines = f.readlines()
 
+        self._tokenizer.code = lines
         token_list: List[Tuple[int, str]] = []
-        for p in files:
-            with p.open("r") as f:
-                lines = f.readlines()
+        while True:
+            try:
+                self._tokenizer.advance()
+            except RuntimeError:
+                break
 
-            self._tokenizer.code = lines
-            while True:
-                try:
-                    self._tokenizer.advance()
-                except RuntimeError:
-                    break
-
-                parsed = self._tokenizer.current_xml
-                line = self._tokenizer.current_line
-                if parsed:
-                    token_list.append((line, parsed))
+            parsed = self._tokenizer.current_xml
+            line = self._tokenizer.current_line
+            if parsed:
+                token_list.append((line, parsed))
 
         compiled_code = self._engine.compile(token_list)
 
