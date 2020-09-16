@@ -498,13 +498,13 @@ class CompilationEngine:
 
         self._check_syntax(tag, content, raises=True)
 
-        _, *content_, _ = self._token_list[self._index].split(" ")
-        content = " ".join(content_)
+        _, *_cur_content, _ = self._token_list[self._index].split(" ")
+        cur_content = " ".join(_cur_content)
 
         self._code.append(self._token_list[self._index])
         self._index += 1
 
-        return content
+        return cur_content
 
     def _write_non_terminal_tag(self, tag: str) -> None:
         """Writes non terminal tag.
