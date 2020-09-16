@@ -74,17 +74,32 @@ class JackTokenizer:
         self._row = 0
         self._column = 100
 
-    def _has_more_token(self) -> bool:
-        """Boolean flag for more token.
+    @property
+    def token_type(self) -> int:
+        """Token type.
 
         Returns:
-            has (bool): Token existence.
+            token_type (int): parsed current token type.
+
+        Raises:
+            ValueErorr: If unexpected token is given.
         """
 
-        return self._row < self._row_num or self._column < self._column_num
+        if not self._current_token:
+            return self.t_invalid
 
-    def _not_end_line(self) -> bool:
-        return self._column < self._column_num
+        if self._current_token in self.keyword:
+            return self.t_keyword
+        elif self._current_token in self.symbol:
+            return self.t_symbol
+        elif self._is_all_numeric():
+            return self.t_integer_const
+        elif self._is_string_const():
+            return self.t_string_const
+        elif self._is_valid_identifier():
+            return self.t_identifier
+
+        raise ValueError(f"Unexpected token: {self._current_token}")
 
     def advance(self) -> None:
         """Go to the next token.
@@ -158,32 +173,17 @@ class JackTokenizer:
             self._column += 1
         self._current_token = token
 
-    @property
-    def token_type(self) -> int:
-        """Token type.
+    def _has_more_token(self) -> bool:
+        """Boolean flag for more token.
 
         Returns:
-            token_type (int): parsed current token type.
-
-        Raises:
-            ValueErorr: If unexpected token is given.
+            has (bool): Token existence.
         """
 
-        if not self._current_token:
-            return self.t_invalid
+        return self._row < self._row_num or self._column < self._column_num
 
-        if self._current_token in self.keyword:
-            return self.t_keyword
-        elif self._current_token in self.symbol:
-            return self.t_symbol
-        elif self._is_all_numeric():
-            return self.t_integer_const
-        elif self._is_string_const():
-            return self.t_string_const
-        elif self._is_valid_identifier():
-            return self.t_identifier
-
-        raise ValueError(f"Unexpected token: {self._current_token}")
+    def _not_end_line(self) -> bool:
+        return self._column < self._column_num
 
     def _is_all_numeric(self) -> bool:
         return (
