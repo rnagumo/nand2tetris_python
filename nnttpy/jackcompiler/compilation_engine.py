@@ -50,7 +50,7 @@ class CompilationEngine:
                 ('<tag> content </tag>').
 
         Returns:
-            token_list (list of str): Parsed token list.
+            code_list (list of str): Compiled codes.
         """
 
         self._token_list = [t for _, t in token_list]
