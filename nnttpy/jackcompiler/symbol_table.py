@@ -27,7 +27,7 @@ class SymbolTable:
         """Gets symbol attributes from table.
 
         Args:
-            name (str): Name of the symbol.
+            key (str): Name of the symbol.
 
         Returns:
             element (TableElement): Element of the symbol. If symbol of the
@@ -42,6 +42,19 @@ class SymbolTable:
             element = TableElement(name=key)
 
         return element
+
+    def __contains__(self, key: str) -> bool:
+        """Returns whether the specified key exists in table.
+
+        Args:
+            key (str): Name of the symbol.
+
+        Returns:
+            res (bool): Key exists or not in table.
+        """
+
+        element = self.__getitem__(key)
+        return not element.kind
 
     def start_subroutine(self) -> None:
         """Resets subroutine table at the start of subroutine."""
