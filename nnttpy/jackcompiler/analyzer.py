@@ -1,5 +1,5 @@
 
-from typing import Union, List
+from typing import Union, List, Tuple
 
 import pathlib
 
@@ -22,7 +22,7 @@ class JackAnalyzer:
                 multiple .jack files.
 
         Returns:
-            code (list of str): Translated assemble code.
+            compiled_code (list of str): Translated assemble code.
 
         Raises:
             ValueError: If given path does not specify .jack file.
@@ -37,7 +37,7 @@ class JackAnalyzer:
         if not files or any(".jack" not in str(p) for p in files):
             raise ValueError(f"Found not-Jack files: {files}")
 
-        token_list: List[str] = []
+        token_list: List[Tuple[int, str]] = []
         for p in files:
             with p.open("r") as f:
                 lines = f.readlines()
@@ -50,9 +50,10 @@ class JackAnalyzer:
                     break
 
                 parsed = self._tokenizer.current_xml
+                line = self._tokenizer.current_line
                 if parsed:
-                    token_list.append(parsed)
+                    token_list.append((line, parsed))
 
-        token_list = self._engine.compile(token_list)
+        compiled_code = self._engine.compile(token_list)
 
-        return token_list
+        return compiled_code
