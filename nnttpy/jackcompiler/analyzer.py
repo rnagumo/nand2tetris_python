@@ -21,7 +21,7 @@ class JackAnalyzer:
             path (str or pathlib.Path): Path to .jack file.
 
         Returns:
-            compiled_code (list of str): Translated assemble code.
+            xml_code (list of str): Parsed XML code.
 
         Raises:
             ValueError: If given path does not specify .jack file.
@@ -47,6 +47,6 @@ class JackAnalyzer:
             if parsed:
                 token_list.append((line, parsed))
 
-        compiled_code = self._engine.compile(token_list)
+        xml_code = self._engine.compile(token_list)
 
-        return compiled_code
+        return xml_code
