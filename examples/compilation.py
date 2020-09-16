@@ -12,14 +12,20 @@ def main() -> None:
     args = cml_parser.parse_args()
     input_path = pathlib.Path(args.input)
 
-    # Assemble
-    compiler = jackcompiler.JackAnalyzer()
-    xml_code = compiler.compile_xml(input_path)
+    if input_path.is_dir():
+        path_list = list(input_path.glob("*.jack"))
+        if not path_list:
+            raise ValueError(f"No .jack file is found in {input_path}")
+    else:
+        path_list = [input_path]
 
-    # Write parsed binary to file
-    output_path = input_path.parent / (input_path.stem + ".xml")
-    with output_path.open("w") as f:
-        f.write("\n".join(xml_code))
+    # Compile
+    for path in path_list:
+        compiler = jackcompiler.JackAnalyzer()
+        xml_code = compiler.compile_xml(path)
+        output_path = path.parent / (path.stem + ".xml")
+        with output_path.open("w") as f:
+            f.write("\n".join(xml_code))
 
 
 if __name__ == "__main__":
