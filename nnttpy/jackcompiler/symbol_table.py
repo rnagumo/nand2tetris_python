@@ -56,6 +56,14 @@ class SymbolTable:
         element = self.__getitem__(key)
         return not element.kind
 
+    def start_class(self) -> None:
+        """Resets class table at the start of class."""
+
+        self._class_table = {}
+        self._number_table["static"] = 0
+        self._number_table["field"] = 0
+        self.start_subroutine()
+
     def start_subroutine(self) -> None:
         """Resets subroutine table at the start of subroutine."""
 
