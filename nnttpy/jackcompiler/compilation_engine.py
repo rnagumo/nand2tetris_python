@@ -51,7 +51,7 @@ class XMLCompilationEngine:
 
         # 'class' className
         self._write_checked_token("keyword", "class")
-        self._write_checked_token("identifier")
+        self._write_checked_type()
 
         # '{' classVarDec* subroutineDec*
         self._write_checked_token("symbol", "{")
