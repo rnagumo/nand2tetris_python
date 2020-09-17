@@ -12,7 +12,7 @@ class JackAnalyzer:
     def __init__(self):
 
         self._tokenizer = jackcompiler.JackTokenizer()
-        self._engine = jackcompiler.XMLCompilationEngine()
+        self._xml_engine = jackcompiler.XMLCompilationEngine()
 
     def compile_xml(self, path: Union[str, pathlib.Path]) -> List[str]:
         """Compiles Jack lang code to XML.
@@ -47,6 +47,6 @@ class JackAnalyzer:
             if parsed:
                 token_list.append((line, parsed))
 
-        xml_code = self._engine.compile(token_list)
+        xml_code = self._xml_engine.compile(token_list)
 
         return xml_code
