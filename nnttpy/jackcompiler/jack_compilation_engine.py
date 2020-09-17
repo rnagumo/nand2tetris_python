@@ -45,7 +45,7 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
 
         super().compile(token_list)
 
-        return self._writer.code
+        return self._writer.code[:]
 
     def compile_class(self) -> None:
         """Compiles class.
