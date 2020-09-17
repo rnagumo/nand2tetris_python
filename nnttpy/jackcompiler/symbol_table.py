@@ -23,6 +23,19 @@ class SymbolTable:
         self._subroutine_table: Dict[str, TableElement] = {}
         self._number_table: Dict[str, int] = {k: 0 for k in self.possible_kind}
 
+    def __repr__(self) -> str:
+
+        res = []
+        res.append("Class table")
+        for key, value in self._class_table.items():
+            res.append(f"  {key}: {dataclasses.asdict(value)}")
+
+        res.append("Subroutine table")
+        for key, value in self._subroutine_table.items():
+            res.append(f"  {key}: {dataclasses.asdict(value)}")
+
+        return "\n".join(res)
+
     def __getitem__(self, key: str) -> TableElement:
         """Gets symbol attributes from table.
 
