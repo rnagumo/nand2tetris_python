@@ -19,8 +19,8 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
     """Symbol engine with symbol table."""
 
     category_list = [
-        "static", "field", "arg", "var", "class", "subroutine"]
-    kind_list = ["static", "field", "arg", "var"]
+        "static", "field", "argument", "var", "class", "subroutine"]
+    kind_list = ["static", "field", "argument", "var"]
 
     def __init__(self):
         super().__init__()
@@ -64,8 +64,8 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         ((type varName) (',' type varName)*)?
         """
 
-        self._symbol_attr.category = "arg"
-        self._symbol_attr.kind = "arg"
+        self._symbol_attr.category = "argument"
+        self._symbol_attr.kind = "argument"
         self._is_defined = True
         super().compile_parameter_list()
         self._is_defined = False

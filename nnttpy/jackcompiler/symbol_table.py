@@ -15,7 +15,7 @@ class TableElement:
 class SymbolTable:
     """Symbol table class."""
 
-    possible_kind = ["static", "field", "arg", "var"]
+    possible_kind = ["static", "field", "argument", "var"]
 
     def __init__(self):
 
