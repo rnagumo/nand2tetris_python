@@ -453,30 +453,43 @@ class XMLCompilationEngine:
         return flag
 
     def _write_checked_token(self, tag: str,
-                             content: Union[str, List[str]] = "") -> None:
+                             content: Union[str, List[str]] = ""
+                             ) -> Tuple[str, str]:
         """Writes current token with syntax check.
 
         Args:
             tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
         """
 
         self._check_syntax(tag, content, raises=True)
         self._code.append(self._token_list[self._index])
         self._index += 1
 
-    def _write_checked_type(self, allow_void: bool = False) -> None:
+        return self._get_contents(self._index - 1)
+
+    def _write_checked_type(self, allow_void: bool = False) -> Tuple[str, str]:
         """Writes current type with syntax check.
 
         type: ('int | 'char' | 'boolean', className)
 
         Args:
             allow_void (bool, optional): If `True`, 'void' type is allowed.
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
         """
 
         self._check_type(allow_void, raises=False)
         self._code.append(self._token_list[self._index])
         self._index += 1
+
+        return self._get_contents(self._index - 1)
 
     def _write_non_terminal_tag(self, tag: str) -> None:
         """Writes non terminal tag.
