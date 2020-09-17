@@ -185,15 +185,15 @@ class XMLCompilationEngine:
 
         # statement*
         while self._check_syntax("keyword", self.statement_tokens):
-            if self._check_syntax(content="do"):
+            if self._check_syntax("keyword", "do"):
                 self.compile_do()
-            elif self._check_syntax(content="let"):
+            elif self._check_syntax("keyword", "let"):
                 self.compile_let()
-            elif self._check_syntax(content="while"):
+            elif self._check_syntax("keyword", "while"):
                 self.compile_while()
-            elif self._check_syntax(content="return"):
+            elif self._check_syntax("keyword", "return"):
                 self.compile_return()
-            elif self._check_syntax(content="if"):
+            elif self._check_syntax("keyword", "if"):
                 self.compile_if()
 
         self._write_non_terminal_tag("/statements")
@@ -312,8 +312,8 @@ class XMLCompilationEngine:
             self._write_checked_token("integerConstant")
         elif self._check_syntax("stringConstant"):
             self._write_checked_token("stringConstant")
-        elif self._check_syntax(content=self.keyword_constant):
-            self._write_checked_token(content=self.keyword_constant)
+        elif self._check_syntax("keyword", self.keyword_constant):
+            self._write_checked_token("keyword", self.keyword_constant)
         elif self._check_syntax("symbol", "("):
             self._write_checked_token("symbol", "(")
             self.compile_expression()
@@ -368,13 +368,13 @@ class XMLCompilationEngine:
 
         self._write_non_terminal_tag("/expressionList")
 
-    def _check_syntax(self, tag: str = "", content: Union[str, List[str]] = "",
+    def _check_syntax(self, tag: str, content: Union[str, List[str]] = "",
                       raises: bool = False, index: Optional[int] = None
                       ) -> bool:
         """Checks syntax of current token.
 
         Args:
-            tag (str, optional): Expected tag.
+            tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
             raises (bool, optional): Whether raises error.
             index (int, optional): Index you focus on.
@@ -394,9 +394,7 @@ class XMLCompilationEngine:
         index = index if index is not None else self._index
         cur_tag, cur_content = self._get_contents(index)
 
-        flag = True
-        if tag:
-            flag &= cur_tag == tag
+        flag = cur_tag == tag
         if content:
             if isinstance(content, str):
                 content = [content]
@@ -410,14 +408,14 @@ class XMLCompilationEngine:
 
         return flag
 
-    def _check_next_syntax(self, tag: str = "",
-                           content: Union[str, List[str]] = "") -> bool:
+    def _check_next_syntax(self, tag: str, content: Union[str, List[str]] = ""
+                           ) -> bool:
         """Checks next syntax.
 
         This method is used for compiling `term` element.
 
         Args:
-            tag (str, optional): Expected tag.
+            tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
         """
 
@@ -454,12 +452,12 @@ class XMLCompilationEngine:
 
         return flag
 
-    def _write_checked_token(self, tag: str = "",
+    def _write_checked_token(self, tag: str,
                              content: Union[str, List[str]] = "") -> None:
         """Writes current token with syntax check.
 
         Args:
-            tag (str, optional): Expected tag.
+            tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
         """
 
