@@ -5,7 +5,6 @@ from typing import List, Union, Tuple, Optional
 class XMLCompilationEngine:
     """Compile engine."""
 
-    type_tokens = ["boolean", "int", "char"]
     class_var_dec_tokens = ["static", "field"]
     subroutine_tokens = ["constructor", "function", "method"]
     statement_tokens = ["let", "if", "while", "do", "return"]
@@ -19,26 +18,6 @@ class XMLCompilationEngine:
         self._line_list: List[int] = []
         self._index = 0
         self._code: List[str] = []
-
-        # Used-defined type/class/subroutine names
-        self._type_names: List[str] = self.type_tokens[:]
-        self._class_names: List[str] = []
-        self._subroutine_names: List[str] = []
-
-        # Variable names
-        self._static_var_names: List[str] = []  # class
-        self._field_var_names: List[str] = []  # object
-        self._local_var_names: List[str] = []  # subroutine
-        self._param_var_names: List[str] = []  # subroutine
-
-    @property
-    def code(self) -> List[str]:
-        return self._code
-
-    @property
-    def var_names(self) -> List[str]:
-        return (self._static_var_names + self._field_var_names
-                + self._local_var_names + self._param_var_names)
 
     def compile(self, token_list: List[Tuple[int, str]]) -> List[str]:
         """Compiles given token list.
@@ -56,6 +35,7 @@ class XMLCompilationEngine:
         self._token_list = [t for _, t in token_list]
         self._line_list = [n for n, _ in token_list]
         self._index = 0
+        self._code = []
         self.compile_class()
 
         return self._code[:]
@@ -70,9 +50,7 @@ class XMLCompilationEngine:
 
         # 'class' className
         self._write_checked_token("keyword", "class")
-        class_name = self._write_checked_token("identifier")
-        self._type_names.append(class_name)
-        self._class_names.append(class_name)
+        self._write_checked_token("identifier")
 
         # '{' classVarDec* subroutineDec*
         self._write_checked_token("symbol", "{")
@@ -90,39 +68,22 @@ class XMLCompilationEngine:
         self._write_checked_token("symbol", "}")
         self._write_non_terminal_tag("/class")
 
-        # Finally, abord parameters
-        self._static_var_names = []
-        self._field_var_names = []
-
     def compile_class_var_dec(self) -> None:
         """Compiles classVarDec.
 
         ('static'|'field') type varName (',', varName)* ';'
         """
 
+        # ('static'|'field') type varName
         self._write_non_terminal_tag("classVarDec")
-
-        # ('static'|'field')
-        scope = self._write_checked_token("keyword", self.class_var_dec_tokens)
-
-        # type
-        self._write_checked_token(["keyword", "identifier"])
-
-        # varName
-        var_name = self._write_checked_token("identifier")
-        if scope == "static":
-            self._static_var_names.append(var_name)
-        else:
-            self._field_var_names.append(var_name)
+        self._write_checked_token("keyword", self.class_var_dec_tokens)
+        self._write_checked_type()
+        self._write_checked_token("identifier")
 
         # (',', varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
-            var_name = self._write_checked_token("identifier")
-            if scope == "static":
-                self._static_var_names.append(var_name)
-            else:
-                self._field_var_names.append(var_name)
+            self._write_checked_token("identifier")
 
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/classVarDec")
@@ -139,12 +100,9 @@ class XMLCompilationEngine:
         # ('constructor'|'function'|'method')
         self._write_checked_token("keyword", self.subroutine_tokens)
 
-        # ('void'|type)
-        self._write_checked_token(content=self._type_names + ["void"])
-
-        # subroutineName
-        subroutine_name = self._write_checked_token("identifier")
-        self._subroutine_names.append(subroutine_name)
+        # ('void'|type) subroutineName
+        self._write_checked_type(allow_void=True)
+        self._write_checked_token("identifier")
 
         # '(' parameterList ')' subroutineBody
         self._write_checked_token("symbol", "(")
@@ -153,10 +111,6 @@ class XMLCompilationEngine:
         self.compile_subroutine_body()
         self._write_non_terminal_tag("/subroutineDec")
 
-        # Finally, abord local/parameter list
-        self._local_var_names = []
-        self._param_var_names = []
-
     def compile_parameter_list(self) -> None:
         """Compiles parameter list.
 
@@ -164,21 +118,19 @@ class XMLCompilationEngine:
         """
 
         self._write_non_terminal_tag("parameterList")
-        if not self._check_syntax(content=self._type_names):
+        if not self._check_syntax(["keyword", "identifier"]):
             self._write_non_terminal_tag("/parameterList")
             return
 
         # type varName
-        self._write_checked_token(content=self._type_names)
-        var_name = self._write_checked_token("identifier")
-        self._param_var_names.append(var_name)
+        self._write_checked_type()
+        self._write_checked_token("identifier")
 
         # (',' type varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
-            self._write_checked_token(content=self._type_names)
-            var_name = self._write_checked_token("identifier")
-            self._param_var_names.append(var_name)
+            self._write_checked_type()
+            self._write_checked_token("identifier")
 
         self._write_non_terminal_tag("/parameterList")
 
@@ -209,15 +161,13 @@ class XMLCompilationEngine:
         # 'var' type varName
         self._write_non_terminal_tag("varDec")
         self._write_checked_token("keyword", "var")
-        self._write_checked_token(["keyword", "identifier"])
-        var_name = self._write_checked_token("identifier")
-        self._local_var_names.append(var_name)
+        self._write_checked_type()
+        self._write_checked_token("identifier")
 
         # (',' varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
-            var_name = self._write_checked_token("identifier")
-            self._local_var_names.append(var_name)
+            self._write_checked_token("identifier")
 
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/varDec")
@@ -265,15 +215,10 @@ class XMLCompilationEngine:
         'let' varName ('[' expression ']')? '=' expression ';'
         """
 
+        # 'let' varName
         self._write_non_terminal_tag("letStatement")
         self._write_checked_token("keyword", "let")
-
-        # varName
-        self._write_checked_token(
-            "identifier",
-            content=(self._static_var_names + self._field_var_names
-                     + self._local_var_names + self._param_var_names)
-        )
+        self._write_checked_token("identifier")
 
         # ('[' expression ']')?
         if self._check_syntax("symbol", "["):
@@ -485,26 +430,28 @@ class XMLCompilationEngine:
         return self._check_syntax(tag, content, index=self._index + 1)
 
     def _write_checked_token(self, tag: Union[str, List[str]] = "",
-                             content: Union[str, List[str]] = "") -> str:
+                             content: Union[str, List[str]] = "") -> None:
         """Writes current token with syntax check.
 
         Args:
             tag (str or list[str], optional): Expected tag.
             content (str or list[str], optional): Expected content.
-
-        Returns:
-            content (str): Current content.
         """
 
         self._check_syntax(tag, content, raises=True)
-
-        _, *_cur_content, _ = self._token_list[self._index].split(" ")
-        cur_content = " ".join(_cur_content)
-
         self._code.append(self._token_list[self._index])
         self._index += 1
 
-        return cur_content
+    def _write_checked_type(self, allow_void: bool = False) -> None:
+        """Writes current type with syntax check.
+
+        type: ('int | 'char' | 'boolean', className)
+
+        Args:
+            allow_void (bool, optional): If `True`, 'void' type is allowed.
+        """
+
+        return self._write_checked_token(["keyword", "identifier"])
 
     def _write_non_terminal_tag(self, tag: str) -> None:
         """Writes non terminal tag.
