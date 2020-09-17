@@ -100,6 +100,10 @@ class SymbolTable:
         if kind not in self.possible_kind:
             raise ValueError(f"Unexpected kind '{kind}'.")
 
+        if not name or not type:
+            raise ValueError(
+                f"Empty string is not allowed: name={name}, type={type}")
+
         number = self._number_table[kind]
         self._number_table[kind] += 1
 
