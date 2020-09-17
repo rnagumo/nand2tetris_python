@@ -108,8 +108,8 @@ class SymbolTable:
         self._number_table[kind] += 1
 
         if kind in ["static", "field"]:
-            self._class_table["name"] = TableElement(
+            self._class_table[name] = TableElement(
                 name=name, type=type, kind=kind, number=number)
         else:
-            self._subroutine_table["name"] = TableElement(
+            self._subroutine_table[name] = TableElement(
                 name=name, type=type, kind=kind, number=number)
