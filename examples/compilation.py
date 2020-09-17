@@ -26,10 +26,11 @@ def main() -> None:
         compiler = jackcompiler.JackAnalyzer()
         if args.xml:
             output = compiler.compile_xml(path)
+            output_path = path.parent / (path.stem + ".xml")
         else:
             output = compiler.compile(path)
+            output_path = path.parent / (path.stem + ".vm")
 
-        output_path = path.parent / (path.stem + ".xml")
         with output_path.open("w") as f:
             f.write("\n".join(output))
 
