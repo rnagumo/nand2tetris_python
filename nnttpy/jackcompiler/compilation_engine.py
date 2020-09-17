@@ -8,6 +8,7 @@ class XMLCompilationEngine:
     class_var_dec_tokens = ["static", "field"]
     subroutine_tokens = ["constructor", "function", "method"]
     statement_tokens = ["let", "if", "while", "do", "return"]
+    type_tokens = ["int", "char", "boolean"]
     ops = ["+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="]
     unary_ops = ["-", "~"]
     keyword_constant = ["true", "false", "null", "this"]
@@ -118,7 +119,7 @@ class XMLCompilationEngine:
         """
 
         self._write_non_terminal_tag("parameterList")
-        if not self._check_syntax(["keyword", "identifier"]):
+        if not self._check_type():
             self._write_non_terminal_tag("/parameterList")
             return
 
@@ -367,14 +368,13 @@ class XMLCompilationEngine:
 
         self._write_non_terminal_tag("/expressionList")
 
-    def _check_syntax(self, tag: Union[str, List[str]] = "",
-                      content: Union[str, List[str]] = "",
-                      raises: bool = False,
-                      index: Optional[int] = None) -> bool:
+    def _check_syntax(self, tag: str = "", content: Union[str, List[str]] = "",
+                      raises: bool = False, index: Optional[int] = None
+                      ) -> bool:
         """Checks syntax of current token.
 
         Args:
-            tag (str or list[str], optional): Expected tag.
+            tag (str, optional): Expected tag.
             content (str or list[str], optional): Expected content.
             raises (bool, optional): Whether raises error.
             index (int, optional): Index you focus on.
@@ -400,9 +400,7 @@ class XMLCompilationEngine:
 
         flag = True
         if tag:
-            if isinstance(tag, str):
-                tag = [tag]
-            flag &= any(cur_tag == t for t in tag)
+            flag &= cur_tag == tag
         if content:
             if isinstance(content, str):
                 content = [content]
@@ -416,25 +414,59 @@ class XMLCompilationEngine:
 
         return flag
 
-    def _check_next_syntax(self, tag: Union[str, List[str]] = "",
+    def _check_next_syntax(self, tag: str = "",
                            content: Union[str, List[str]] = "") -> bool:
         """Checks next syntax.
 
         This method is used for compiling `term` element.
 
         Args:
-            tag (str or list[str], optional): Expected tag.
+            tag (str, optional): Expected tag.
             content (str or list[str], optional): Expected content.
         """
 
         return self._check_syntax(tag, content, index=self._index + 1)
 
-    def _write_checked_token(self, tag: Union[str, List[str]] = "",
+    def _check_type(self, allow_void: bool = False, raises: bool = False,
+                    index: Optional[int] = None) -> bool:
+        """Checks type validation of current token.
+
+        Args:
+            allow_void (bool, optional): If `True`, 'void' type is allowed.
+            raises (bool, optional): Whether raises error.
+            index (int, optional): Index you focus on.
+
+        Returns:
+            checked (bool): If `True`, current token is expected one.
+        """
+
+        if index is None:
+            index = self._index
+        _cur_tag, *_cur_content, _ = self._token_list[index].split(" ")
+        cur_tag = _cur_tag.strip("<>")
+        cur_content = " ".join(_cur_content)
+
+        flag = False
+        flag |= self._check_syntax(
+                "keyword", self.type_tokens, raises=False, index=index)
+        flag |= self._check_syntax("identifier", raises=False, index=index)
+        if allow_void:
+            flag |= self._check_syntax(
+                "keyword", "void", raises=False, index=index)
+
+        if not flag and raises:
+            raise SyntaxError(
+                f"Expected valid type, but given tag='{cur_tag}' and "
+                f"content='{cur_content}' at line {self._line_list[index]}.")
+
+        return flag
+
+    def _write_checked_token(self, tag: str = "",
                              content: Union[str, List[str]] = "") -> None:
         """Writes current token with syntax check.
 
         Args:
-            tag (str or list[str], optional): Expected tag.
+            tag (str, optional): Expected tag.
             content (str or list[str], optional): Expected content.
         """
 
@@ -451,7 +483,9 @@ class XMLCompilationEngine:
             allow_void (bool, optional): If `True`, 'void' type is allowed.
         """
 
-        return self._write_checked_token(["keyword", "identifier"])
+        self._check_type(allow_void, raises=False)
+        self._code.append(self._token_list[self._index])
+        self._index += 1
 
     def _write_non_terminal_tag(self, tag: str) -> None:
         """Writes non terminal tag.
