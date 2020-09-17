@@ -39,7 +39,7 @@ class SymbolTable:
         elif key in self._subroutine_table:
             element = self._subroutine_table[key]
         else:
-            element = TableElement(name=key)
+            raise KeyError(f"Not found key: {key}")
 
         return element
 
@@ -53,8 +53,12 @@ class SymbolTable:
             res (bool): Key exists or not in table.
         """
 
-        element = self.__getitem__(key)
-        return not element.kind
+        try:
+            _ = self.__getitem__(key)
+        except KeyError:
+            return False
+
+        return True
 
     def start_class(self) -> None:
         """Resets class table at the start of class."""
