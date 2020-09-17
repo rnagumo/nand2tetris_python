@@ -12,6 +12,7 @@ class XMLCompilationEngine:
     ops = ["+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="]
     unary_ops = ["-", "~"]
     keyword_constant = ["true", "false", "null", "this"]
+    identifier_type = ["class", "subroutine", "var"]
 
     def __init__(self):
 
@@ -51,7 +52,7 @@ class XMLCompilationEngine:
 
         # 'class' className
         self._write_checked_token("keyword", "class")
-        self._write_checked_type()
+        self._write_checked_token("identifier", dec="class")
 
         # '{' classVarDec* subroutineDec*
         self._write_checked_token("symbol", "{")
@@ -79,12 +80,12 @@ class XMLCompilationEngine:
         self._write_non_terminal_tag("classVarDec")
         self._write_checked_token("keyword", self.class_var_dec_tokens)
         self._write_checked_type()
-        self._write_checked_token("identifier")
+        self._write_checked_token("identifier", dec="var")
 
         # (',', varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
-            self._write_checked_token("identifier")
+            self._write_checked_token("identifier", dec="var")
 
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/classVarDec")
@@ -103,7 +104,7 @@ class XMLCompilationEngine:
 
         # ('void'|type) subroutineName
         self._write_checked_type(allow_void=True)
-        self._write_checked_token("identifier")
+        self._write_checked_token("identifier", dec="subroutine")
 
         # '(' parameterList ')' subroutineBody
         self._write_checked_token("symbol", "(")
@@ -125,13 +126,13 @@ class XMLCompilationEngine:
 
         # type varName
         self._write_checked_type()
-        self._write_checked_token("identifier")
+        self._write_checked_token("identifier", dec="var")
 
         # (',' type varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
             self._write_checked_type()
-            self._write_checked_token("identifier")
+            self._write_checked_token("identifier", dec="var")
 
         self._write_non_terminal_tag("/parameterList")
 
@@ -163,12 +164,12 @@ class XMLCompilationEngine:
         self._write_non_terminal_tag("varDec")
         self._write_checked_token("keyword", "var")
         self._write_checked_type()
-        self._write_checked_token("identifier")
+        self._write_checked_token("identifier", dec="var")
 
         # (',' varName)*
         while self._check_syntax("symbol", ","):
             self._write_checked_token("symbol", ",")
-            self._write_checked_token("identifier")
+            self._write_checked_token("identifier", dec="var")
 
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/varDec")
@@ -219,7 +220,7 @@ class XMLCompilationEngine:
         # 'let' varName
         self._write_non_terminal_tag("letStatement")
         self._write_checked_token("keyword", "let")
-        self._write_checked_token("identifier")
+        self._write_checked_token("identifier", dec="var")
 
         # ('[' expression ']')?
         if self._check_syntax("symbol", "["):
@@ -323,14 +324,14 @@ class XMLCompilationEngine:
             self.compile_term()
         elif self._check_syntax("identifier"):
             if self._check_next_syntax("symbol", "["):
-                self._write_checked_token("identifier")
+                self._write_checked_token("identifier", dec="var")
                 self._write_checked_token("symbol", "[")
                 self.compile_expression()
                 self._write_checked_token("symbol", "]")
             elif self._check_next_syntax("symbol", [".", "("]):
                 self.compile_subroutine_call()
             else:
-                self._write_checked_token("identifier")
+                self._write_checked_token("identifier", dec="var")
 
         self._write_non_terminal_tag("/term")
 
@@ -341,10 +342,12 @@ class XMLCompilationEngine:
         (className|varName) '.' subroutineName '(' expressionList ')'
         """
 
-        self._write_checked_token("identifier")
-        if self._check_syntax("symbol", "."):
+        if self._check_next_syntax("symbol", "."):
+            self._write_checked_token("identifier", dec=["class", "var"])
             self._write_checked_token("symbol", ".")
-            self._write_checked_token("identifier")
+            self._write_checked_token("identifier", dec="subroutine")
+        else:
+            self._write_checked_token("identifier", dec="subroutine")
         self._write_checked_token("symbol", "(")
         self.compile_expression_list(
             is_empty=self._check_syntax("symbol", ")"))
@@ -453,17 +456,22 @@ class XMLCompilationEngine:
         return flag
 
     def _write_checked_token(self, tag: str,
-                             content: Union[str, List[str]] = ""
+                             content: Union[str, List[str]] = "",
+                             dec: Union[str, List[str]] = ""
                              ) -> Tuple[str, str]:
         """Writes current token with syntax check.
 
         Args:
             tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
+            dec (str, optional): Declaration type (class, method etc.).
 
         Returns:
             tag (str): Tag of the specified token.
             content (str): Content of the specified token.
+
+        Raises:
+            ValueError: If `dec` is unexpected string.
         """
 
         self._check_syntax(tag, content, raises=True)
