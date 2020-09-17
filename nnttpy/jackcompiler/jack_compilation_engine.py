@@ -1,5 +1,5 @@
 
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import dataclasses
 
@@ -9,6 +9,7 @@ from nnttpy import jackcompiler
 @dataclasses.dataclass
 class SymbolAttr:
     class_name: str = ""
+    sub_class: str = ""
     category: str = ""
     type: str = ""
     kind: str = ""
@@ -36,73 +37,11 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
 
         self._symbol_table.start_class()
         self._symbol_attr.category = "class"
-        self._is_defined = False
-
-        self._write_non_terminal_tag("class")
-
-        # 'class' className
-        self._write_checked_token("keyword", "class")
-        class_name = self._write_checked_token("identifier")
-        self._symbol_attr.class_name = class_name
-        self._type_names.append(class_name)
-        self._class_names.append(class_name)
-
-        # '{' classVarDec* subroutineDec*
-        self._write_checked_token("symbol", "{")
-        while not self._check_syntax("symbol", "}"):
-            if self._check_syntax("keyword", self.class_var_dec_tokens):
-                self.compile_class_var_dec()
-            elif self._check_syntax("keyword", self.subroutine_tokens):
-                self.compile_subroutine()
-            else:
-                self._check_syntax(
-                    "keyword",
-                    self.class_var_dec_tokens + self.subroutine_tokens,
-                    raises=True)
-
-        self._write_checked_token("symbol", "}")
-        self._write_non_terminal_tag("/class")
-
-        # Finally, abord parameters
-        self._static_var_names = []
-        self._field_var_names = []
-
-    def compile_class_var_dec(self) -> None:
-        """Compiles classVarDec.
-
-        ('static'|'field') type varName (',', varName)* ';'
-        """
-
+        self._symbol_attr.kind = ""
+        self._symbol_attr.class_name = ""
+        self._symbol_attr.sub_class = ""
         self._is_defined = True
-        self._write_non_terminal_tag("classVarDec")
-
-        # ('static'|'field')
-        scope = self._write_checked_token("keyword", self.class_var_dec_tokens)
-        self._symbol_attr.category = scope
-        self._symbol_attr.kind = scope
-
-        # type
-        var_type = self._write_checked_token(["keyword", "identifier"])
-        self._symbol_attr.type = var_type
-
-        # varName
-        var_name = self._write_checked_identifier("identifier")
-        if scope == "static":
-            self._static_var_names.append(var_name)
-        else:
-            self._field_var_names.append(var_name)
-
-        # (',', varName)*
-        while self._check_syntax("symbol", ","):
-            self._write_checked_token("symbol", ",")
-            var_name = self._write_checked_identifier("identifier")
-            if scope == "static":
-                self._static_var_names.append(var_name)
-            else:
-                self._field_var_names.append(var_name)
-
-        self._write_checked_token("symbol", ";")
-        self._write_non_terminal_tag("/classVarDec")
+        super().compile_class()
         self._is_defined = False
 
     def compile_subroutine(self) -> None:
@@ -113,7 +52,11 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         """
 
         self._symbol_table.start_subroutine()
-        return super().compile_subroutine()
+        self._symbol_attr.category = "subroutine"
+        self._symbol_attr.kind = ""
+        self._is_defined = True
+        super().compile_subroutine()
+        self._is_defined = False
 
     def compile_parameter_list(self) -> None:
         """Compiles parameter list.
@@ -121,32 +64,10 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         ((type varName) (',' type varName)*)?
         """
 
-        self._is_defined = True
         self._symbol_attr.category = "arg"
         self._symbol_attr.kind = "arg"
-
-        self._write_non_terminal_tag("parameterList")
-        if not self._check_syntax(content=self._type_names):
-            self._write_non_terminal_tag("/parameterList")
-            return
-
-        # type
-        var_type = self._write_checked_token(content=self._type_names)
-        self._symbol_attr.type = var_type
-
-        # varName
-        var_name = self._write_checked_identifier("identifier")
-        self._param_var_names.append(var_name)
-
-        # (',' type varName)*
-        while self._check_syntax("symbol", ","):
-            self._write_checked_token("symbol", ",")
-            var_type = self._write_checked_token(content=self._type_names)
-            self._symbol_attr.type = var_type
-            var_name = self._write_checked_identifier("identifier")
-            self._param_var_names.append(var_name)
-
-        self._write_non_terminal_tag("/parameterList")
+        self._is_defined = True
+        super().compile_parameter_list()
         self._is_defined = False
 
     def compile_var_dec(self) -> None:
@@ -155,65 +76,83 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         'var' type varName (',' varName)* ';'
         """
 
-        self._is_defined = True
         self._symbol_attr.category = "var"
         self._symbol_attr.kind = "var"
-
-        # 'var' type varName
-        self._write_non_terminal_tag("varDec")
-        self._write_checked_token("keyword", "var")
-        var_type = self._write_checked_token(["keyword", "identifier"])
-        self._symbol_attr.type = var_type
-        var_name = self._write_checked_token("identifier")
-        self._local_var_names.append(var_name)
-
-        # (',' varName)*
-        while self._check_syntax("symbol", ","):
-            self._write_checked_token("symbol", ",")
-            var_name = self._write_checked_token("identifier")
-            self._local_var_names.append(var_name)
-
-        self._write_checked_token("symbol", ";")
-        self._write_non_terminal_tag("/varDec")
+        self._is_defined = True
+        super().compile_var_dec()
         self._is_defined = False
 
-    def _write_checked_identifier(self, tag: Union[str, List[str]] = "",
-                                  content: Union[str, List[str]] = "") -> str:
-        """Writes current identifier with syntax check.
+    def _write_checked_token(self, tag: str,
+                             content: Union[str, List[str]] = "",
+                             dec: Union[str, List[str]] = ""
+                             ) -> Tuple[str, str]:
+        """Writes current token with syntax check.
 
         Args:
-            tag (str or list[str], optional): Expected tag.
+            tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
+            dec (str or list[str], optional): Identifier type.
 
         Returns:
-            content (str): Current content.
-
-        Raises:
-            SyntaxError: If given identifier does not exist in symbol table.
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
         """
 
-        self._check_syntax(tag, content, raises=True)
+        cur_tag, cur_content = super()._write_checked_token(tag, content)
 
-        _cur_tag, *_cur_content, _ = self._token_list[self._index].split(" ")
-        cur_tag = _cur_tag.strip("<>")
-        cur_content = " ".join(_cur_content)
+        def _check_dec(given: Union[str, List[str]], target: str) -> bool:
+            if isinstance(given, str):
+                given = [given]
+            return any(v == target for v in given)
 
-        if self._is_defined and (cur_content not in self._symbol_table):
-            self._symbol_table.define(
-                cur_content, self._symbol_attr.type, self._symbol_attr.kind)
+        if cur_tag == "keyword" and cur_content in self.kind_list:
+            self._symbol_attr.kind = cur_content
 
-        try:
-            element = self._symbol_table[cur_content]
-        except KeyError as e:
-            raise SyntaxError(
-                f"Undefined variable '{cur_content}' is found ad line at "
-                f"{self._line_list[self._index]}") from e
+        if cur_tag == "identifier" and _check_dec(dec, "class"):
+            if self._is_defined:
+                self._symbol_attr.class_name = cur_content
+            self._symbol_attr.sub_class = cur_content
 
-        token = (
-            f"<{cur_tag}> {self._symbol_attr.category}, {self._is_defined}, "
-            f"{element.kind}, {element.number}, {cur_content} </{cur_tag}>")
+        if cur_tag == "identifier" and _check_dec(dec, "subroutine"):
+            cur_content = f"{self._symbol_attr.sub_class}.{cur_content}"
 
-        self._code.append(token)
-        self._index += 1
+        if cur_tag == "identifier" and _check_dec(dec, "var"):
+            if self._is_defined and cur_content not in self._symbol_table:
+                self._symbol_table.define(
+                    cur_content, self._symbol_attr.type, self._symbol_attr.kind
+                )
 
-        return cur_content
+        # Write output token
+        if cur_tag == "identifier":
+            if _check_dec(dec, "var") and cur_content in self._symbol_table:
+                # In method calling, the program can accept 'var.method()'
+                # or 'class.method()'. We cannnot distinguish between these
+                # two.
+                element = self._symbol_table[cur_content]
+                token = f"{dataclasses.asdict(element)}, "
+            else:
+                token = ""
+            token = (f"<{cur_tag}> {dataclasses.asdict(self._symbol_attr)}, "
+                     f"{token}{cur_content} </{cur_tag}>")
+            self._code.pop()
+            self._code.append(token)
+
+        return cur_tag, cur_content
+
+    def _write_checked_type(self, allow_void: bool = False) -> Tuple[str, str]:
+        """Writes current type with syntax check.
+
+        type: ('int | 'char' | 'boolean', className)
+
+        Args:
+            allow_void (bool, optional): If `True`, 'void' type is allowed.
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
+        """
+
+        tag, content = super()._write_checked_type(allow_void)
+        self._symbol_attr.type = content
+
+        return tag, content
