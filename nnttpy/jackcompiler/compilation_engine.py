@@ -469,9 +469,6 @@ class XMLCompilationEngine:
         Returns:
             tag (str): Tag of the specified token.
             content (str): Content of the specified token.
-
-        Raises:
-            ValueError: If `dec` is unexpected string.
         """
 
         self._check_syntax(tag, content, raises=True)
