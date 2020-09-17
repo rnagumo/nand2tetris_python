@@ -27,7 +27,7 @@ class VMWriter:
         if segment not in self.memory_segment:
             raise ValueError(f"Unexpected segment: {segment}")
 
-        raise NotImplementedError
+        self._code.append(f"push {segment} {index}")
 
     def write_pop(self, segment: str, index: int) -> None:
         """Writes pop methods `pop segment index`.
@@ -43,7 +43,7 @@ class VMWriter:
         if segment not in self.memory_segment:
             raise ValueError(f"Unexpected segment: {segment}")
 
-        raise NotImplementedError
+        self._code.append(f"pop {segment} {index}")
 
     def write_arithmetic(self, command: str) -> None:
         """Writes arithmetic command.
@@ -58,7 +58,7 @@ class VMWriter:
         if command not in self.op_commands:
             raise ValueError(f"Unexpected command: {command}")
 
-        raise NotImplementedError
+        self._code.append(f"{command}")
 
     def write_label(self, label: str) -> None:
         """Writes label command `label 'label'`.
@@ -67,7 +67,7 @@ class VMWriter:
             label (str): Label of code.
         """
 
-        raise NotImplementedError
+        self._code.append(f"label {label}")
 
     def write_goto(self, label: str) -> None:
         """Writes goto command `goto 'label'`.
@@ -76,7 +76,7 @@ class VMWriter:
             label (str): Label of code.
         """
 
-        raise NotImplementedError
+        self._code.append(f"goto {label}")
 
     def write_if(self, label: str) -> None:
         """Writes if-goto command `if-goto 'label'`.
@@ -85,7 +85,7 @@ class VMWriter:
             label (str): Label of code.
         """
 
-        raise NotImplementedError
+        self._code.append(f"if-goto {label}")
 
     def write_call(self, name: str, n_args: int) -> None:
         """Writes function call `call 'name' 'a_args'`.
@@ -95,7 +95,7 @@ class VMWriter:
             n_args (int): Number of arguments.
         """
 
-        raise NotImplementedError
+        self._code.append(f"call {name} {n_args}")
 
     def write_function(self, name: str, n_locals: int) -> None:
         """Writes function statements `function 'name' 'n_locals'`.
@@ -105,9 +105,9 @@ class VMWriter:
             n_locals (int): Number of local variables.
         """
 
-        raise NotImplementedError
+        self._code.append(f"call {name} {n_locals}")
 
     def write_return(self) -> None:
         """Writes return commands `return`."""
 
-        raise NotImplementedError
+        self._code.append("return")
