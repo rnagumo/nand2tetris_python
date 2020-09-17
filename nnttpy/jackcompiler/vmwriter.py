@@ -13,6 +13,10 @@ class VMWriter:
 
         self._code: List[str] = []
 
+    @property
+    def code(self) -> List[str]:
+        return self._code
+
     def write_push(self, segment: str, index: int) -> None:
         """Writes push methods `push segment index`.
 
