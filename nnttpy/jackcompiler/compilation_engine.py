@@ -391,12 +391,8 @@ class XMLCompilationEngine:
         if not tag and not content:
             raise ValueError("Both tag and content are empty.")
 
-        if index is None:
-            index = self._index
-
-        _cur_tag, *_cur_content, _ = self._token_list[index].split(" ")
-        cur_tag = _cur_tag.strip("<>")
-        cur_content = " ".join(_cur_content)
+        index = index if index is not None else self._index
+        cur_tag, cur_content = self._get_contents(index)
 
         flag = True
         if tag:
@@ -440,11 +436,8 @@ class XMLCompilationEngine:
             checked (bool): If `True`, current token is expected one.
         """
 
-        if index is None:
-            index = self._index
-        _cur_tag, *_cur_content, _ = self._token_list[index].split(" ")
-        cur_tag = _cur_tag.strip("<>")
-        cur_content = " ".join(_cur_content)
+        index = index if index is not None else self._index
+        cur_tag, cur_content = self._get_contents(index)
 
         flag = False
         flag |= self._check_syntax(
@@ -495,3 +488,20 @@ class XMLCompilationEngine:
         """
 
         self._code.append(f"<{tag}>")
+
+    def _get_contents(self, index: int) -> Tuple[str, str]:
+        """Gets tag & content of given index.
+
+        Args:
+            index (int): Index value.
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
+        """
+
+        _tag, *_content, _ = self._token_list[index].split(" ")
+        tag = _tag.strip("<>")
+        content = " ".join(_content)
+
+        return tag, content
