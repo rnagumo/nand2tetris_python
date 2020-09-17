@@ -464,7 +464,7 @@ class XMLCompilationEngine:
         Args:
             tag (str): Expected tag.
             content (str or list[str], optional): Expected content.
-            dec (str, optional): Declaration type (class, method etc.).
+            dec (str or list[str], optional): Identifier type.
 
         Returns:
             tag (str): Tag of the specified token.
