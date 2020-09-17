@@ -2,7 +2,7 @@
 from typing import List, Union, Tuple, Optional
 
 
-class CompilationEngine:
+class XMLCompilationEngine:
     """Compile engine."""
 
     type_tokens = ["boolean", "int", "char"]
