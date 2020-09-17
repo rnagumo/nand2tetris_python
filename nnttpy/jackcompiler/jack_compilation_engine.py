@@ -27,7 +27,25 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
 
         self._symbol_table = jackcompiler.SymbolTable()
         self._symbol_attr = SymbolAttr()
+        self._writer = jackcompiler.VMWriter()
         self._is_defined = False
+
+    def compile(self, token_list: List[Tuple[int, str]]) -> List[str]:
+        """Compiles given token list.
+
+        Caution: This method should be called first.
+
+        Args:
+            token_list (list of [int, str]): List of line number and tokens
+                ('<tag> content </tag>').
+
+        Returns:
+            code_list (list of str): Compiled codes.
+        """
+
+        super().compile(token_list)
+
+        return self._writer.code
 
     def compile_class(self) -> None:
         """Compiles class.
