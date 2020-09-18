@@ -1,4 +1,10 @@
 
+"""Compiler in project 10 & 11.
+
+ref)
+https://github.com/EDalSanto/Nand2Tetris
+"""
+
 import argparse
 import pathlib
 
