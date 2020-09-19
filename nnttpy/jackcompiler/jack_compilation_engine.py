@@ -1,6 +1,7 @@
 
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Deque
 
+import collections
 import dataclasses
 
 from nnttpy import jackcompiler
@@ -22,6 +23,10 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         "static", "field", "argument", "var", "class", "subroutine"]
     kind_list = ["static", "field", "argument", "var"]
 
+    ops = ["+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="]
+    unary_ops = ["-", "~"]
+    ops_convert = {"&amp;": "&", "&lt;": "<", "&gt;": ">"}
+
     def __init__(self):
         super().__init__()
 
@@ -29,6 +34,7 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         self._symbol_attr = SymbolAttr()
         self._writer = jackcompiler.VMWriter()
         self._is_defined = False
+        self._buffer: Deque[Tuple[str, str]] = collections.deque()
 
     def compile(self, token_list: List[Tuple[int, str]]) -> List[str]:
         """Compiles given token list.
@@ -73,7 +79,33 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         self._symbol_attr.category = "subroutine"
         self._symbol_attr.kind = ""
         self._is_defined = True
-        super().compile_subroutine()
+        self._buffer.clear()
+
+        self._write_non_terminal_tag("subroutineDec")
+
+        # ('constructor'|'function'|'method')
+        self._write_checked_token("keyword", self.subroutine_tokens)
+
+        # ('void'|type) subroutineName
+        self._write_checked_type(allow_void=True)
+        self._write_checked_token("identifier", dec="subroutine")
+
+        # '(' parameterList ')' subroutineBody
+        self._write_checked_token("symbol", "(")
+        self.compile_parameter_list()
+        self._write_checked_token("symbol", ")")
+
+        _, name = self._buffer.popleft()
+        n_locals = 0
+        while self._buffer:
+            kind, _ = self._buffer.popleft()
+            n_locals += int(kind == "var")
+        self._writer.write_function(name, n_locals)
+
+        # subroutineBody
+        self.compile_subroutine_body()
+        self._write_non_terminal_tag("/subroutineDec")
+
         self._is_defined = False
 
     def compile_parameter_list(self) -> None:
@@ -99,6 +131,83 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         self._is_defined = True
         super().compile_var_dec()
         self._is_defined = False
+
+    def compile_let(self) -> None:
+        """Compiles let statement.
+
+        'let' varName ('[' expression ']')? '=' expression ';'
+        """
+
+        self._buffer.clear()
+
+        # 'let' varName
+        self._write_non_terminal_tag("letStatement")
+        self._write_checked_token("keyword", "let")
+        self._write_checked_token("identifier", dec="var")
+        operand1 = self._buffer.popleft()
+
+        # ('[' expression ']')?
+        if self._check_syntax("symbol", "["):
+            self._write_checked_token("symbol", "[")
+            self.compile_expression()
+            self._write_checked_token("symbol", "]")
+            raise NotImplementedError
+
+        # '='
+        self._write_checked_token("symbol", "=")
+        self._buffer.popleft()
+
+        # expression ';'
+        self.compile_expression()
+        self._write_checked_token("symbol", ";")
+        self._write_non_terminal_tag("/letStatement")
+
+        operand2 = self._buffer.popleft()
+
+        self._writer.write_push("tmp", operand2)
+        self._writer.write_pop("", operand1)
+
+    def compile_return(self) -> None:
+        """Compiles return statement.
+
+        'return' expression? ';'
+        """
+
+        self._write_non_terminal_tag("returnStatement")
+        self._write_checked_token("keyword", "return")
+        if self._check_syntax("symbol", ";"):
+            # Write dummy constant for 'void' returned value
+            self._writer.write_push("constant", "0")
+        else:
+            self.compile_expression()
+        self._write_checked_token("symbol", ";")
+
+        self._writer.write_return()
+        self._write_non_terminal_tag("/returnStatement")
+
+    def compile_subroutine_call(self) -> None:
+        """Compiles subroutine call.
+
+        subroutineName '(' expressionList ')' |
+        (className|varName) '.' subroutineName '(' expressionList ')'
+        """
+
+        self._buffer.clear()
+        super().compile_subroutine_call()
+
+        # Subroutine name
+        kind, name = self._buffer.popleft()
+        if kind != "subroutine":
+            kind, name = self._buffer.popleft()
+        subroutine_name = f"{self._symbol_attr.sub_class}.{name}"
+
+        # Args
+        n_args = 0
+        while self._buffer:
+            kind, _ = self._buffer.popleft()
+            n_args += int(kind == "var")
+
+        self._writer.write_call(subroutine_name, n_args)
 
     def _write_checked_token(self, tag: str,
                              content: Union[str, List[str]] = "",
@@ -154,6 +263,22 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
                      f"{token}{cur_content} </{cur_tag}>")
             self._code.pop()
             self._code.append(token)
+
+        # Buffer
+        if not self._is_defined:
+            if _check_dec(dec, "subroutine"):
+                self._buffer.append(("subroutine", cur_content))
+            elif _check_dec(dec, "argument") or _check_dec(dec, "var"):
+                self._buffer.append(("argument", cur_content))
+            elif _check_dec(dec, "integerConstant"):
+                self._buffer.append(("constant", cur_content))
+            elif _check_dec(dec, "stringConstant"):
+                self._buffer.append(("string", cur_content))
+            else:
+                raise NotImplementedError(f"{dec}, {cur_content}")
+
+        if _check_dec(dec, "var"):
+            self._buffer.append(("var", cur_content))
 
         return cur_tag, cur_content
 
