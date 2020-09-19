@@ -511,7 +511,7 @@ class XMLCompilationEngine:
             content (str): Content of the specified token.
         """
 
-        self._check_type(allow_void, raises=False)
+        self._check_type(allow_void, raises=True)
         self._code.append(self._token_list[self._index])
         self._index += 1
 
