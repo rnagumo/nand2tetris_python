@@ -295,8 +295,8 @@ class XMLCompilationEngine:
 
         self._write_non_terminal_tag("expression")
         self.compile_term()
-        while self._check_syntax("symbol", self.ops):
-            self._write_checked_token("symbol", self.ops)
+        while self._check_ops():
+            self._write_checked_ops()
             self.compile_term()
         self._write_non_terminal_tag("/expression")
 
@@ -455,6 +455,27 @@ class XMLCompilationEngine:
 
         return flag
 
+    def _check_ops(self, raises: bool = False) -> bool:
+        """Checks operator of current token.
+
+        Args:
+            raises (bool, optional): Whether raises error.
+
+        Returns:
+            checked (bool): If `True`, current token is expected one.
+        """
+
+        cur_tag, cur_content = self._get_contents(self._index)
+        flag = self._check_syntax("symbol", self.ops, raises=False)
+
+        if not flag and raises:
+            raise SyntaxError(
+                f"Expected valid type, but given tag='{cur_tag}' and "
+                f"content='{cur_content}' at line "
+                "{self._line_list[self._index]}.")
+
+        return flag
+
     def _write_checked_token(self, tag: str,
                              content: Union[str, List[str]] = "",
                              dec: Union[str, List[str]] = ""
@@ -491,6 +512,22 @@ class XMLCompilationEngine:
         """
 
         self._check_type(allow_void, raises=False)
+        self._code.append(self._token_list[self._index])
+        self._index += 1
+
+        return self._get_contents(self._index - 1)
+
+    def _write_checked_ops(self) -> Tuple[str, str]:
+        """Writes current operator with syntax check.
+
+        type: ("+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "=")
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
+        """
+
+        self._check_ops(raises=True)
         self._code.append(self._token_list[self._index])
         self._index += 1
 
