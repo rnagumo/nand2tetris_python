@@ -147,11 +147,15 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         operand1 = self._buffer.popleft()
 
         # ('[' expression ']')?
-        if self._check_syntax("symbol", "["):
+        array_assingment = self._check_syntax("symbol", "[")
+        if array_assingment:
             self._write_checked_token("symbol", "[")
             self.compile_expression()
             self._write_checked_token("symbol", "]")
-            raise NotImplementedError
+
+            ptr = self._buffer.popleft()
+            element = self._symbol_table[ptr]
+            self._writer.write_push(element.kind, element.number)
 
         # '='
         self._write_checked_token("symbol", "=")
@@ -162,10 +166,14 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/letStatement")
 
-        operand2 = self._buffer.popleft()
-
-        self._writer.write_push("tmp", operand2)
-        self._writer.write_pop("", operand1)
+        if not array_assingment:
+            element = self._symbol_table[operand1]
+            self._writer.write_pop(element.kind, element.number)
+        else:
+            self._writer.write_pop("temp", 0)
+            self._writer.write_pop("pointer", 1)
+            self._writer.write_push("temp", 0)
+            self._writer.write_pop("that", 0)
 
     def compile_return(self) -> None:
         """Compiles return statement.
