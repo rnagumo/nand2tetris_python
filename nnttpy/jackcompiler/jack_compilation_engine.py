@@ -23,9 +23,19 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         "static", "field", "argument", "var", "class", "subroutine"]
     kind_list = ["static", "field", "argument", "var"]
 
-    ops = ["+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="]
-    unary_ops = ["-", "~"]
-    ops_convert = {"&amp;": "&", "&lt;": "<", "&gt;": ">"}
+    ops_table = {
+        "+": "add",
+        "-": "sub",
+        "=": "eq",
+        "&lt;": "<",
+        "&gt;": ">",
+        "&amp;": "and",
+        "|": "or",
+    }
+    unary_ops_table = {
+        "-": "neg",
+        "~": "not",
+    }
 
     def __init__(self):
         super().__init__()
@@ -307,3 +317,28 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         self._symbol_attr.type = content
 
         return tag, content
+
+    def _write_checked_ops(self) -> Tuple[str, str]:
+        """Writes current operator with syntax check.
+
+        type: ("+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "=")
+
+        Returns:
+            tag (str): Tag of the specified token.
+            content (str): Content of the specified token.
+        """
+
+        _tag, _op = super()._write_checked_ops()
+
+        if _op in self.unary_ops_table:
+            self._writer.write_arithmetic(self.unary_ops_table[_op])
+        elif _op in self.ops_table:
+            self._writer.write_arithmetic(self.ops_table[_op])
+        elif _op == "*":
+            self._writer.write_call("Math.multiply", 2)
+        elif _op == "/":
+            self._writer.write_call("Math.devide", 2)
+        else:
+            raise ValueError(f"Unexpected operand: {_op}")
+
+        return _tag, _op
