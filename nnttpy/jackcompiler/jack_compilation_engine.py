@@ -1,26 +1,12 @@
 
-from typing import List, Union, Tuple, Deque
-
-import collections
-import dataclasses
+from typing import List, Tuple
 
 from nnttpy import jackcompiler
-
-
-@dataclasses.dataclass
-class SymbolAttr:
-    class_name: str = ""
-    sub_class: str = ""
-    category: str = ""
-    type: str = ""
-    kind: str = ""
 
 
 class JackCompileEngine(jackcompiler.XMLCompilationEngine):
     """Symbol engine with symbol table."""
 
-    category_list = [
-        "static", "field", "argument", "var", "class", "subroutine"]
     kind_list = ["static", "field", "argument", "var"]
 
     ops_table = {
@@ -41,10 +27,8 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         super().__init__()
 
         self._symbol_table = jackcompiler.SymbolTable()
-        self._symbol_attr = SymbolAttr()
         self._writer = jackcompiler.VMWriter()
-        self._is_defined = False
-        self._buffer: Deque[Tuple[str, str]] = collections.deque()
+        self._class_name = ""
 
     def compile(self, token_list: List[Tuple[int, str]]) -> List[str]:
         """Compiles given token list.
@@ -70,13 +54,51 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         """
 
         self._symbol_table.start_class()
-        self._symbol_attr.category = "class"
-        self._symbol_attr.kind = ""
-        self._symbol_attr.class_name = ""
-        self._symbol_attr.sub_class = ""
-        self._is_defined = True
-        super().compile_class()
-        self._is_defined = False
+        self._write_non_terminal_tag("class")
+
+        # 'class' className
+        self._write_checked_token("keyword", "class")
+        self._class_name = self._write_checked_token("identifier")
+
+        # '{' classVarDec* subroutineDec*
+        self._write_checked_token("symbol", "{")
+        while not self._check_syntax("symbol", "}"):
+            if self._check_syntax("keyword", self.class_var_dec_tokens):
+                self.compile_class_var_dec()
+            elif self._check_syntax("keyword", self.subroutine_tokens):
+                self.compile_subroutine()
+            else:
+                self._check_syntax(
+                    "keyword",
+                    self.class_var_dec_tokens + self.subroutine_tokens,
+                    raises=True)
+
+        self._write_checked_token("symbol", "}")
+        self._write_non_terminal_tag("/class")
+
+    def compile_class_var_dec(self):
+        """Compiles classVarDec.
+
+        ('static'|'field') type varName (',', varName)* ';'
+        """
+
+        # ('static'|'field') type varName
+        self._write_non_terminal_tag("classVarDec")
+        var_kind = self._write_checked_token(
+            "keyword", self.class_var_dec_tokens)
+        var_type = self._write_checked_type()
+        var_name = self._write_checked_token("identifier")
+        self._symbol_table.define(var_name, var_type, var_kind)
+
+        # (',', varName)*
+        while self._check_syntax("symbol", ","):
+            self._write_checked_token("symbol", ",")
+            self._write_checked_token("identifier")
+            var_name = self._write_checked_token("identifier")
+            self._symbol_table.define(var_name, var_type, var_kind)
+
+        self._write_checked_token("symbol", ";")
+        self._write_non_terminal_tag("/classVarDec")
 
     def compile_subroutine(self) -> None:
         """Compiles subroutine.
@@ -86,11 +108,6 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         """
 
         self._symbol_table.start_subroutine()
-        self._symbol_attr.category = "subroutine"
-        self._symbol_attr.kind = ""
-        self._is_defined = True
-        self._buffer.clear()
-
         self._write_non_terminal_tag("subroutineDec")
 
         # ('constructor'|'function'|'method')
@@ -98,49 +115,102 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
 
         # ('void'|type) subroutineName
         self._write_checked_type(allow_void=True)
-        self._write_checked_token("identifier", dec="subroutine")
+        subroutine_name = self._write_checked_token("identifier")
 
         # '(' parameterList ')' subroutineBody
         self._write_checked_token("symbol", "(")
         self.compile_parameter_list()
         self._write_checked_token("symbol", ")")
 
-        _, name = self._buffer.popleft()
-        n_locals = 0
-        while self._buffer:
-            kind, _ = self._buffer.popleft()
-            n_locals += int(kind == "var")
-        self._writer.write_function(name, n_locals)
-
         # subroutineBody
-        self.compile_subroutine_body()
+        self.compile_subroutine_body(subroutine_name)
         self._write_non_terminal_tag("/subroutineDec")
 
-        self._is_defined = False
-
-    def compile_parameter_list(self) -> None:
+    def compile_parameter_list(self) -> int:
         """Compiles parameter list.
 
         ((type varName) (',' type varName)*)?
+
+        Returns:
+            num_params (int): Numnber of parameters.
         """
 
-        self._symbol_attr.category = "argument"
-        self._symbol_attr.kind = "argument"
-        self._is_defined = True
-        super().compile_parameter_list()
-        self._is_defined = False
+        self._write_non_terminal_tag("parameterList")
+        if not self._check_type():
+            self._write_non_terminal_tag("/parameterList")
+            return 0
 
-    def compile_var_dec(self) -> None:
+        # type varName
+        var_type = self._write_checked_type()
+        var_name = self._write_checked_token("identifier")
+        self._symbol_table.define(var_name, var_type, "argument")
+        num_params = 1
+
+        # (',' type varName)*
+        while self._check_syntax("symbol", ","):
+            self._write_checked_token("symbol", ",")
+            var_type = self._write_checked_type()
+            var_name = self._write_checked_token("identifier")
+            self._symbol_table.define(var_name, var_type, "argument")
+            num_params += 1
+
+        self._write_non_terminal_tag("/parameterList")
+
+        return num_params
+
+    def compile_subroutine_body(self, subroutine_name: str) -> None:
+        """Compiles subroutine body.
+
+        '{' varDec* statements '}'
+
+        Args:
+            subroutine_name (str): Subroutine name.
+        """
+
+        self._write_non_terminal_tag("subroutineBody")
+        self._write_checked_token("symbol", "{")
+
+        # varDec*
+        num_locals = 0
+        while self._check_syntax("keyword", "var"):
+            num_locals += self.compile_var_dec()
+        self._writer.write_function(subroutine_name, num_locals)
+
+        # statements '}'
+        self.compile_statements()
+        self._write_checked_token("symbol", '}')
+        self._write_non_terminal_tag("/subroutineBody")
+
+    def compile_var_dec(self) -> int:
         """Compiles variable declaration.
 
         'var' type varName (',' varName)* ';'
+
+        Returns:
+            num_vars (int): Number of variables.
         """
 
-        self._symbol_attr.category = "var"
-        self._symbol_attr.kind = "var"
-        self._is_defined = True
-        super().compile_var_dec()
-        self._is_defined = False
+        num_vars = 0
+
+        # 'var' type varName
+        self._write_non_terminal_tag("varDec")
+        self._write_checked_token("keyword", "var")
+        var_type = self._write_checked_type()
+        var_name = self._write_checked_token("identifier")
+        self._symbol_table.define(var_name, var_type, "argument")
+        num_vars += 1
+
+        # (',' varName)*
+        while self._check_syntax("symbol", ","):
+            self._write_checked_token("symbol", ",")
+            var_name = self._write_checked_token("identifier")
+            self._symbol_table.define(var_name, var_type, "argument")
+            num_vars += 1
+
+        self._write_checked_token("symbol", ";")
+        self._write_non_terminal_tag("/varDec")
+
+        return num_vars
 
     def compile_let(self) -> None:
         """Compiles let statement.
@@ -148,60 +218,111 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         'let' varName ('[' expression ']')? '=' expression ';'
         """
 
-        self._buffer.clear()
-
         # 'let' varName
         self._write_non_terminal_tag("letStatement")
         self._write_checked_token("keyword", "let")
-        self._write_checked_token("identifier", dec="var")
-        operand1 = self._buffer.popleft()
+        var_name = self._write_checked_token("identifier")
+        symbol = self._symbol_table[var_name]
 
         # ('[' expression ']')?
-        array_assingment = self._check_syntax("symbol", "[")
-        if array_assingment:
+        if self._check_syntax("symbol", "["):
+            do_array_assign = True
             self._write_checked_token("symbol", "[")
             self.compile_expression()
             self._write_checked_token("symbol", "]")
 
-            ptr = self._buffer.popleft()
-            element = self._symbol_table[ptr]
-            self._writer.write_push(element.kind, element.number)
+            self._writer.write_push(symbol.kind, symbol.number)
+            self._writer.write_arithmetic("add")
+        else:
+            do_array_assign = False
 
-        # '='
+        # '=' expression ';'
         self._write_checked_token("symbol", "=")
-        self._buffer.popleft()
-
-        # expression ';'
         self.compile_expression()
         self._write_checked_token("symbol", ";")
         self._write_non_terminal_tag("/letStatement")
 
-        if not array_assingment:
-            element = self._symbol_table[operand1]
-            self._writer.write_pop(element.kind, element.number)
-        else:
+        if do_array_assign:
+            # Pop returned value to temp
             self._writer.write_pop("temp", 0)
+
+            # Pop address of array slot to THAT
             self._writer.write_pop("pointer", 1)
+
+            # Push popped returned value to temp
             self._writer.write_push("temp", 0)
+
+            # Set popped address to THAT
             self._writer.write_pop("that", 0)
+        else:
+            self._writer.write_pop(symbol.kind, symbol.number)
 
-    def compile_return(self) -> None:
-        """Compiles return statement.
+    def compile_expression(self) -> None:
+        """Compiles expression.
 
-        'return' expression? ';'
+        term (op term)*
         """
 
-        self._write_non_terminal_tag("returnStatement")
-        self._write_checked_token("keyword", "return")
-        if self._check_syntax("symbol", ";"):
-            # Write dummy constant for 'void' returned value
-            self._writer.write_push("constant", "0")
-        else:
-            self.compile_expression()
-        self._write_checked_token("symbol", ";")
+        ops_list: List[Tuple[str, str]] = []
 
-        self._writer.write_return()
-        self._write_non_terminal_tag("/returnStatement")
+        self._write_non_terminal_tag("expression")
+        self.compile_term(ops_list)
+        while self._check_ops():
+            _op = self._write_checked_ops()
+            ops_list.append((_op, "bi"))
+            self.compile_term(ops_list)
+        self._write_non_terminal_tag("/expression")
+
+        while ops_list:
+            _op, _category = ops_list.pop()
+            if _category == "unary":
+                self._writer.write_arithmetic(self.unary_ops_table[_op])
+            elif _op == "*":
+                self._writer.write_call("Math.multiply", 2)
+            elif _op == "/":
+                self._writer.write_call("Math.devide", 2)
+            else:
+                self._writer.write_arithmetic(self.ops_table[_op])
+
+    def compile_term(self, ops_list: list) -> None:
+        """Compiles term.
+
+        integerConstant | stringConstant | keywordConstant |
+        '(' expression ')' | unaryOp term |
+        varName | varName '[' expression ']' | subroutineCall
+
+        Args:
+            ops_list (list): List of operations
+        """
+
+        self._write_non_terminal_tag("term")
+        if self._check_syntax("integerConstant"):
+            _constant = self._write_checked_token("integerConstant")
+            self._writer.write_push("constant", _constant)
+        elif self._check_syntax("stringConstant"):
+            self._write_checked_token("stringConstant")
+        elif self._check_syntax("keyword", self.keyword_constant):
+            self._write_checked_token("keyword", self.keyword_constant)
+        elif self._check_syntax("symbol", "("):
+            self._write_checked_token("symbol", "(")
+            self.compile_expression()
+            self._write_checked_token("symbol", ")")
+        elif self._check_syntax("symbol", self.unary_ops):
+            _op = self._write_checked_token("symbol", self.unary_ops)
+            ops_list.append((_op, "unary"))
+            self.compile_term(ops_list)
+        elif self._check_syntax("identifier"):
+            if self._check_next_syntax("symbol", "["):
+                self._write_checked_token("identifier")
+                self._write_checked_token("symbol", "[")
+                self.compile_expression()
+                self._write_checked_token("symbol", "]")
+            elif self._check_next_syntax("symbol", [".", "("]):
+                self.compile_subroutine_call()
+            else:
+                self._write_checked_token("identifier")
+
+        self._write_non_terminal_tag("/term")
 
     def compile_subroutine_call(self) -> None:
         """Compiles subroutine call.
@@ -210,135 +331,58 @@ class JackCompileEngine(jackcompiler.XMLCompilationEngine):
         (className|varName) '.' subroutineName '(' expressionList ')'
         """
 
-        self._buffer.clear()
-        super().compile_subroutine_call()
-
-        # Subroutine name
-        kind, name = self._buffer.popleft()
-        if kind != "subroutine":
-            kind, name = self._buffer.popleft()
-        subroutine_name = f"{self._symbol_attr.sub_class}.{name}"
-
-        # Args
-        n_args = 0
-        while self._buffer:
-            kind, _ = self._buffer.popleft()
-            n_args += int(kind == "var")
-
-        self._writer.write_call(subroutine_name, n_args)
-
-    def _write_checked_token(self, tag: str,
-                             content: Union[str, List[str]] = "",
-                             dec: Union[str, List[str]] = ""
-                             ) -> Tuple[str, str]:
-        """Writes current token with syntax check.
-
-        Args:
-            tag (str): Expected tag.
-            content (str or list[str], optional): Expected content.
-            dec (str or list[str], optional): Identifier type.
-
-        Returns:
-            tag (str): Tag of the specified token.
-            content (str): Content of the specified token.
-        """
-
-        cur_tag, cur_content = super()._write_checked_token(tag, content)
-
-        def _check_dec(given: Union[str, List[str]], target: str) -> bool:
-            if isinstance(given, str):
-                given = [given]
-            return any(v == target for v in given)
-
-        if cur_tag == "keyword" and cur_content in self.kind_list:
-            self._symbol_attr.kind = cur_content
-
-        if cur_tag == "identifier" and _check_dec(dec, "class"):
-            if self._is_defined:
-                self._symbol_attr.class_name = cur_content
-            self._symbol_attr.sub_class = cur_content
-
-        if cur_tag == "identifier" and _check_dec(dec, "subroutine"):
-            cur_content = f"{self._symbol_attr.sub_class}.{cur_content}"
-
-        if cur_tag == "identifier" and _check_dec(dec, "var"):
-            if self._is_defined and cur_content not in self._symbol_table:
-                self._symbol_table.define(
-                    cur_content, self._symbol_attr.type, self._symbol_attr.kind
-                )
-
-        # Write output token
-        if cur_tag == "identifier":
-            if _check_dec(dec, "var") and cur_content in self._symbol_table:
-                # In method calling, the program can accept 'var.method()'
-                # or 'class.method()'. We cannnot distinguish between these
-                # two.
-                element = self._symbol_table[cur_content]
-                token = f"{dataclasses.asdict(element)}, "
-            else:
-                token = ""
-            token = (f"<{cur_tag}> {dataclasses.asdict(self._symbol_attr)}, "
-                     f"{token}{cur_content} </{cur_tag}>")
-            self._code.pop()
-            self._code.append(token)
-
-        # Buffer
-        if not self._is_defined:
-            if _check_dec(dec, "subroutine"):
-                self._buffer.append(("subroutine", cur_content))
-            elif _check_dec(dec, "argument") or _check_dec(dec, "var"):
-                self._buffer.append(("argument", cur_content))
-            elif _check_dec(dec, "integerConstant"):
-                self._buffer.append(("constant", cur_content))
-            elif _check_dec(dec, "stringConstant"):
-                self._buffer.append(("string", cur_content))
-            else:
-                raise NotImplementedError(f"{dec}, {cur_content}")
-
-        if _check_dec(dec, "var"):
-            self._buffer.append(("var", cur_content))
-
-        return cur_tag, cur_content
-
-    def _write_checked_type(self, allow_void: bool = False) -> Tuple[str, str]:
-        """Writes current type with syntax check.
-
-        type: ('int | 'char' | 'boolean', className)
-
-        Args:
-            allow_void (bool, optional): If `True`, 'void' type is allowed.
-
-        Returns:
-            tag (str): Tag of the specified token.
-            content (str): Content of the specified token.
-        """
-
-        tag, content = super()._write_checked_type(allow_void)
-        self._symbol_attr.type = content
-
-        return tag, content
-
-    def _write_checked_ops(self) -> Tuple[str, str]:
-        """Writes current operator with syntax check.
-
-        type: ("+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "=")
-
-        Returns:
-            tag (str): Tag of the specified token.
-            content (str): Content of the specified token.
-        """
-
-        _tag, _op = super()._write_checked_ops()
-
-        if _op in self.unary_ops_table:
-            self._writer.write_arithmetic(self.unary_ops_table[_op])
-        elif _op in self.ops_table:
-            self._writer.write_arithmetic(self.ops_table[_op])
-        elif _op == "*":
-            self._writer.write_call("Math.multiply", 2)
-        elif _op == "/":
-            self._writer.write_call("Math.devide", 2)
+        if self._check_next_syntax("symbol", "."):
+            # User defined method
+            caller_name = self._write_checked_token("identifier")
+            self._write_checked_token("symbol", ".")
+            subroutine_name = self._write_checked_token("identifier")
         else:
-            raise ValueError(f"Unexpected operand: {_op}")
+            caller_name = ""
+            subroutine_name = self._write_checked_token("identifier")
 
-        return _tag, _op
+        if caller_name in self._symbol_table:
+            method_call = True
+            symbol = self._symbol_table[caller_name]
+            symbol_type = symbol.type
+            self._writer.write_push("local", symbol.number)
+        else:
+            method_call = False
+            symbol_type = caller_name
+        subroutine_call_name = f"{symbol_type}.{subroutine_name}"
+
+        self._write_checked_token("symbol", "(")
+        num_args = self.compile_expression_list(
+            is_empty=self._check_syntax("symbol", ")"))
+        self._write_checked_token("symbol", ")")
+
+        if method_call:
+            num_args += 1
+
+        self._writer.write_call(subroutine_call_name, num_args)
+        self._writer.write_pop("temp", 0)
+
+    def compile_expression_list(self, is_empty: bool = False) -> int:
+        """Compiles expression list.
+
+        (expression (',' expression)* )?
+
+        Args:
+            is_empty (bool, optional): If this expression list is empty.
+
+        Returns:
+            num_args (int): Number of arguments
+        """
+
+        self._write_non_terminal_tag("expressionList")
+
+        num_args = 0
+        if not is_empty:
+            self.compile_expression()
+            while self._check_syntax("symbol", ","):
+                self._write_checked_token("symbol", ",")
+                self.compile_expression()
+                num_args += 1
+
+        self._write_non_terminal_tag("/expressionList")
+
+        return num_args
